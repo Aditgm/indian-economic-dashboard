@@ -1,7 +1,8 @@
 pandas==2.0.3
 yfinance==0.2.18
-streamlit==1.25.0
+streamlit==1.28.0
 plotly==5.15.0
 requests==2.31.0
 beautifulsoup4==4.12.2
 pandas-datareader==0.10.0
+numpy==1.24.3
