@@ -1,4 +1,3 @@
-# Indian Economic Dashboard - Day 2 (Complete Fixed Version)
 import streamlit as st
 import pandas as pd
 import yfinance as yf
@@ -7,15 +6,12 @@ import plotly.graph_objects as go
 import numpy as np
 from config import INDIAN_INDICATORS, CATEGORIES, DATE_RANGES
 
-# Configure the page
 st.set_page_config(
     page_title="Indian Economic Dashboard Pro",
     page_icon="🇮🇳",
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# Enhanced Color Scheme
 COLORS = {
     "saffron": "#FF9933",
     "white": "#FFFFFF", 
@@ -47,8 +43,6 @@ COLORS = {
     "border_dark": "#4A5568", 
     "border_light": "#CBD5E0"
 }
-
-# Enhanced CSS Styling with Color Theory
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -209,8 +203,6 @@ st.markdown(f"""
     }}
 </style>
 """, unsafe_allow_html=True)
-
-# Professional chart creation function
 def create_professional_chart(data, title, color, show_volume=False):
     """Create a high-contrast, continuous line chart"""
     clean_data = data.dropna()
@@ -219,8 +211,6 @@ def create_professional_chart(data, title, color, show_volume=False):
         return go.Figure()
     
     fig = go.Figure()
-    
-    # Main line trace
     fig.add_trace(go.Scatter(
         x=clean_data.index,
         y=clean_data.values,
@@ -234,8 +224,6 @@ def create_professional_chart(data, title, color, show_volume=False):
         hovertemplate='<b>%{y:,.2f}</b><br>%{x|%d %b %Y}<extra></extra>',
         fill=None
     ))
-    
-    # Subtle fill area
     fig.add_trace(go.Scatter(
         x=clean_data.index,
         y=clean_data.values,
@@ -283,10 +271,7 @@ def create_professional_chart(data, title, color, show_volume=False):
         showlegend=False,
         height=400
     )
-    
     return fig
-
-# Enhanced data fetching function
 @st.cache_data
 def get_indian_market_data(selected_indicators=None, days_back=365):
     """Fetch data for selected indicators with custom time period"""
@@ -325,8 +310,6 @@ def get_indian_market_data(selected_indicators=None, days_back=365):
         return df, status_info
     else:
         return pd.DataFrame(), status_info
-
-# Sample data function
 @st.cache_data
 def create_realistic_sample_data(selected_indicators=None, days_back=365):
     """Create realistic sample data for selected indicators"""
@@ -340,8 +323,6 @@ def create_realistic_sample_data(selected_indicators=None, days_back=365):
     
     np.random.seed(42)
     data_dict = {}
-    
-    # Sample data parameters for each indicator
     sample_params = {
         "NIFTY_50": {"base": 22000, "volatility": 0.02},
         "INR_USD": {"base": 83.0, "volatility": 0.003},
@@ -355,8 +336,6 @@ def create_realistic_sample_data(selected_indicators=None, days_back=365):
     
     for indicator_key in selected_indicators:
         params = sample_params.get(indicator_key, {"base": 1000, "volatility": 0.02})
-        
-        # Generate realistic price series
         returns = np.random.normal(0, params["volatility"], len(dates))
         prices = [params["base"]]
         
@@ -366,21 +345,15 @@ def create_realistic_sample_data(selected_indicators=None, days_back=365):
         data_dict[indicator_key] = pd.Series(prices[1:], index=dates)
     
     return pd.DataFrame(data_dict)
-
-# ===== SIDEBAR CONTROLS =====
 st.sidebar.header("📊 Dashboard Controls")
-
-# Date range selector
 st.sidebar.subheader("📅 Time Period")
 selected_range = st.sidebar.selectbox(
     "Select time period:",
     options=list(DATE_RANGES.keys()),
-    index=3,  # Default to 1 Year
+    index=3,
     help="Choose how far back to fetch data"
 )
 days_back = DATE_RANGES[selected_range]
-
-# Indicator selection
 st.sidebar.subheader("📈 Select Indicators")
 selected_indicators = []
 
@@ -389,8 +362,6 @@ for category, indicators in CATEGORIES.items():
     
     for indicator_key in indicators:
         indicator = INDIAN_INDICATORS[indicator_key]
-        
-        # Default selections
         default_selected = indicator_key in ['NIFTY_50', 'INR_USD']
         
         is_selected = st.sidebar.checkbox(
@@ -402,16 +373,12 @@ for category, indicators in CATEGORIES.items():
         
         if is_selected:
             selected_indicators.append(indicator_key)
-
-# Display mode
 st.sidebar.subheader("🎛️ Display Mode")
 display_mode = st.sidebar.radio(
     "Choose display style:",
     ["Individual Charts", "Grid View"],
     help="How to display selected indicators"
 )
-
-# Info panel
 st.sidebar.subheader("ℹ️ Selection Info")
 st.sidebar.info(f"""
 **Selected Period:** {selected_range}
@@ -419,7 +386,6 @@ st.sidebar.info(f"""
 **Display:** {display_mode}
 """)
 
-# Market overview
 st.sidebar.markdown(f"""
 <div style="background: linear-gradient(135deg, {COLORS['dark_surface']} 0%, {COLORS['dark_surface_light']} 100%); 
            padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; 
@@ -435,8 +401,6 @@ st.sidebar.markdown(f"""
     </div>
 </div>
 """, unsafe_allow_html=True)
-
-# Market status
 current_time = datetime.datetime.now()
 market_open = current_time.weekday() < 5 and 9.25 <= current_time.hour + current_time.minute/60 <= 15.5
 
@@ -453,30 +417,23 @@ st.sidebar.markdown(f"""
     </p>
 </div>
 """, unsafe_allow_html=True)
-
-# Data source toggle
 use_live_data = st.sidebar.toggle("📡 Use Live Data", value=True, help="Switch between live and sample data")
 
-# ===== MAIN CONTENT =====
 st.markdown("""
 <div class="main-header">
     <h1>🇮🇳 Indian Economic Dashboard Pro</h1>
     <p>Multi-Indicator Analysis & Real-time Market Data</p>
 </div>
 """, unsafe_allow_html=True)
-
-# Check if indicators are selected
 if not selected_indicators:
     st.warning("👆 Please select at least one indicator from the sidebar to begin analysis.")
     st.stop()
 
-# Load data with spinner
 with st.spinner(f'🔄 Loading {len(selected_indicators)} indicators for {selected_range}...'):
     
     if use_live_data:
         df, status_messages = get_indian_market_data(selected_indicators, days_back)
-        
-        # Show status messages
+
         for msg in status_messages:
             if "✅" in msg:
                 st.success(msg)
@@ -500,18 +457,13 @@ with st.spinner(f'🔄 Loading {len(selected_indicators)} indicators for {select
     else:
         df = create_realistic_sample_data(selected_indicators, days_back)
         data_source = "Sample Data"
-
-# Main dashboard content
 if not df.empty:
-    # Success message
     st.markdown(f"""
     <div class="success-box">
         <h4 style="color: {COLORS['success']}; margin-top: 0;">✅ Dashboard Ready</h4>
         <p><strong>Source:</strong> {data_source} • <strong>Records:</strong> {len(df):,} • <strong>Updated:</strong> {df.index[-1].strftime('%d %B %Y')}</p>
     </div>
     """, unsafe_allow_html=True)
-    
-    # Portfolio Overview Metrics
     st.subheader("📊 Portfolio Overview")
     metric_cols = st.columns(min(len(selected_indicators), 4))
     
@@ -529,28 +481,20 @@ if not df.empty:
                     value=f"{current_val:.2f}",
                     delta=f"{pct_change:+.2f}%"
                 )
-    
-    # Display charts based on selected mode
     if display_mode == "Individual Charts":
         st.subheader("📈 Individual Indicator Analysis")
         
         for indicator_key in selected_indicators:
             if indicator_key in df.columns:
                 indicator = INDIAN_INDICATORS[indicator_key]
-                
-                # Create expandable section for each indicator
                 with st.expander(f"📊 {indicator['name']} - {indicator['category']}", expanded=True):
                     st.markdown(f"**Description:** {indicator['description']}")
-                    
-                    # Create chart
                     chart = create_professional_chart(
                         df[indicator_key], 
                         indicator['name'], 
                         indicator['color']
                     )
                     st.plotly_chart(chart, use_container_width=True)
-                    
-                    # Quick stats
                     stat_col1, stat_col2, stat_col3 = st.columns(3)
                     
                     with stat_col1:
@@ -567,8 +511,6 @@ if not df.empty:
     
     elif display_mode == "Grid View":
         st.subheader("📊 Grid Layout")
-        
-        # Create grid (2 charts per row)
         cols_per_row = 2
         rows_needed = (len(selected_indicators) + cols_per_row - 1) // cols_per_row
         
@@ -586,8 +528,6 @@ if not df.empty:
                         
                         with cols[col_idx]:
                             st.markdown(f"**{indicator['name']}**")
-                            
-                            # Smaller chart for grid
                             chart = create_professional_chart(
                                 df[indicator_key], 
                                 indicator['name'], 
@@ -595,8 +535,6 @@ if not df.empty:
                             )
                             chart.update_layout(height=300)
                             st.plotly_chart(chart, use_container_width=True)
-                            
-                            # Current value
                             current = df[indicator_key].iloc[-1]
                             prev = df[indicator_key].iloc[-2] if len(df) > 1 else current
                             change = ((current - prev) / prev) * 100 if prev != 0 else 0
@@ -606,8 +544,6 @@ if not df.empty:
                                 value=f"{current:.2f}",
                                 delta=f"{change:+.2f}%"
                             )
-    
-    # Market Analytics Section
     st.subheader("📊 Market Analytics")
     
     metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
@@ -626,8 +562,7 @@ if not df.empty:
     
     with metric_col4:
         st.metric("🔄 Data Quality", "Excellent")
-    
-    # Detailed Analysis Expander
+
     with st.expander("📈 Detailed Market Analysis", expanded=False):
         
         analysis_col1, analysis_col2 = st.columns(2)
@@ -642,8 +577,7 @@ if not df.empty:
             st.markdown("### 📋 Statistical Summary") 
             stats = df.describe()
             st.dataframe(stats, use_container_width=True)
-        
-        # Market Insights
+
         st.markdown("### 💡 Market Insights")
         
         insights_col1, insights_col2 = st.columns(2)
@@ -679,8 +613,6 @@ else:
         <p style="color: {COLORS['dark_text_primary']};">Unable to load market data. Please check your connection and try again.</p>
     </div>
     """, unsafe_allow_html=True)
-
-# Enhanced Footer
 st.markdown("---")
 st.markdown(f"""
 <div style="background: linear-gradient(135deg, {COLORS['dark_surface']} 0%, {COLORS['dark_surface_light']} 100%);
