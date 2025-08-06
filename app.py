@@ -5,10 +5,6 @@ import datetime
 import plotly.graph_objects as go
 import numpy as np
 from config import INDIAN_INDICATORS, CATEGORIES, DATE_RANGES
-<<<<<<< HEAD
-=======
-
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
 st.set_page_config(
     page_title="Indian Economic Dashboard Pro",
     page_icon="🇮🇳",
@@ -206,7 +202,6 @@ st.markdown(f"""
     }}
 </style>
 """, unsafe_allow_html=True)
-<<<<<<< HEAD
 def calculate_moving_averages(data, windows):
     """Calculate Simple Moving Averages for given time windows"""
     ma_data = pd.DataFrame(index=data.index)
@@ -230,32 +225,12 @@ def calculate_technical_indicators(data, indicator_key):
 
 def create_professional_chart(data, title, color, ma_windows=None, chart_height=400):
     """Create enhanced chart with optional technical indicators"""
-=======
-def create_professional_chart(data, title, color, show_volume=False):
-    """Create a high-contrast, continuous line chart"""
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
     clean_data = data.dropna()
     
     if len(clean_data) == 0:
         return go.Figure()
     
     fig = go.Figure()
-<<<<<<< HEAD
-=======
-    fig.add_trace(go.Scatter(
-        x=clean_data.index,
-        y=clean_data.values,
-        mode='lines',
-        line=dict(
-            color=color, 
-            width=3,
-            shape='linear'
-        ),
-        name=title,
-        hovertemplate='<b>%{y:,.2f}</b><br>%{x|%d %b %Y}<extra></extra>',
-        fill=None
-    ))
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
     fig.add_trace(go.Scatter(
         x=clean_data.index,
         y=clean_data.values,
@@ -335,8 +310,8 @@ def create_professional_chart(data, title, color, show_volume=False):
             borderwidth=1
         )
     )
+    
     return fig
-<<<<<<< HEAD
 
 # ===== NEW: Correlation Analysis Functions =====
 def create_correlation_heatmap(df, selected_indicators):
@@ -485,8 +460,6 @@ def get_correlation_insights(df, selected_indicators):
     
     return insights
 
-=======
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
 @st.cache_data
 def get_indian_market_data(selected_indicators=None, days_back=365):
     """Fetch data for selected indicators with custom time period"""
@@ -560,29 +533,18 @@ def create_realistic_sample_data(selected_indicators=None, days_back=365):
         data_dict[indicator_key] = pd.Series(prices[1:], index=dates)
     
     return pd.DataFrame(data_dict)
-<<<<<<< HEAD
 
 st.sidebar.header("📊 Dashboard Controls")
 
-=======
-st.sidebar.header("📊 Dashboard Controls")
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
 st.sidebar.subheader("📅 Time Period")
 selected_range = st.sidebar.selectbox(
     "Select time period:",
     options=list(DATE_RANGES.keys()),
-<<<<<<< HEAD
     index=3, 
     help="Choose how far back to fetch data"
 )
 days_back = DATE_RANGES[selected_range]
 
-=======
-    index=3,
-    help="Choose how far back to fetch data"
-)
-days_back = DATE_RANGES[selected_range]
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
 st.sidebar.subheader("📈 Select Indicators")
 selected_indicators = []
 
@@ -608,10 +570,7 @@ display_mode = st.sidebar.radio(
     ["Individual Charts", "Grid View"],
     help="How to display selected indicators"
 )
-<<<<<<< HEAD
 
-=======
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
 st.sidebar.subheader("ℹ️ Selection Info")
 st.sidebar.info(f"""
 **Selected Period:** {selected_range}
@@ -634,10 +593,7 @@ st.sidebar.markdown(f"""
     </div>
 </div>
 """, unsafe_allow_html=True)
-<<<<<<< HEAD
 
-=======
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
 current_time = datetime.datetime.now()
 market_open = current_time.weekday() < 5 and 9.25 <= current_time.hour + current_time.minute/60 <= 15.5
 
@@ -654,10 +610,7 @@ st.sidebar.markdown(f"""
     </p>
 </div>
 """, unsafe_allow_html=True)
-<<<<<<< HEAD
 
-=======
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
 use_live_data = st.sidebar.toggle("📡 Use Live Data", value=True, help="Switch between live and sample data")
 
 st.markdown("""
@@ -666,25 +619,14 @@ st.markdown("""
     <p>Multi-Indicator Analysis & Real-time Market Data</p>
 </div>
 """, unsafe_allow_html=True)
-<<<<<<< HEAD
 
 if not selected_indicators:
     st.warning("👆 Please select at least one indicator from the sidebar to begin analysis.")
     st.stop()
-=======
-if not selected_indicators:
-    st.warning("👆 Please select at least one indicator from the sidebar to begin analysis.")
-    st.stop()
-
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
 with st.spinner(f'🔄 Loading {len(selected_indicators)} indicators for {selected_range}...'):
     
     if use_live_data:
         df, status_messages = get_indian_market_data(selected_indicators, days_back)
-<<<<<<< HEAD
-=======
-
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
         for msg in status_messages:
             if "✅" in msg:
                 st.success(msg)
@@ -732,7 +674,6 @@ if not df.empty:
                     value=f"{current_val:.2f}",
                     delta=f"{pct_change:+.2f}%"
                 )
-<<<<<<< HEAD
     tab1, tab2, tab3, tab4 = st.tabs([
         "📈 **Technical Analysis**", 
         "🔗 **Correlation Matrix**", 
@@ -746,43 +687,6 @@ if not df.empty:
         
         with col1:
             show_ma = st.checkbox("📊 Show Moving Averages", value=False)
-=======
-    if display_mode == "Individual Charts":
-        st.subheader("📈 Individual Indicator Analysis")
-        
-        for indicator_key in selected_indicators:
-            if indicator_key in df.columns:
-                indicator = INDIAN_INDICATORS[indicator_key]
-                with st.expander(f"📊 {indicator['name']} - {indicator['category']}", expanded=True):
-                    st.markdown(f"**Description:** {indicator['description']}")
-                    chart = create_professional_chart(
-                        df[indicator_key], 
-                        indicator['name'], 
-                        indicator['color']
-                    )
-                    st.plotly_chart(chart, use_container_width=True)
-                    stat_col1, stat_col2, stat_col3 = st.columns(3)
-                    
-                    with stat_col1:
-                        current = df[indicator_key].iloc[-1]
-                        st.metric("Current", f"{current:.2f} {indicator['unit']}")
-                    
-                    with stat_col2:
-                        period_high = df[indicator_key].max()
-                        st.metric("Period High", f"{period_high:.2f}")
-                    
-                    with stat_col3:
-                        period_low = df[indicator_key].min()
-                        st.metric("Period Low", f"{period_low:.2f}")
-    
-    elif display_mode == "Grid View":
-        st.subheader("📊 Grid Layout")
-        cols_per_row = 2
-        rows_needed = (len(selected_indicators) + cols_per_row - 1) // cols_per_row
-        
-        for row in range(rows_needed):
-            cols = st.columns(cols_per_row)
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
             
         with col2:
             ma_windows = []
@@ -808,21 +712,9 @@ if not df.empty:
                         st.plotly_chart(chart, use_container_width=True)
                         tech_indicators = calculate_technical_indicators(df[indicator_key], indicator_key)
                         
-<<<<<<< HEAD
                         metric_col1, metric_col2, metric_col3 = st.columns(3)
                         
                         with metric_col1:
-=======
-                        with cols[col_idx]:
-                            st.markdown(f"**{indicator['name']}**")
-                            chart = create_professional_chart(
-                                df[indicator_key], 
-                                indicator['name'], 
-                                indicator['color']
-                            )
-                            chart.update_layout(height=300)
-                            st.plotly_chart(chart, use_container_width=True)
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
                             current = df[indicator_key].iloc[-1]
                             st.metric("Current Value", f"{current:.2f} {indicator['unit']}")
                         
@@ -852,7 +744,6 @@ if not df.empty:
                         if indicator_key in df.columns:
                             indicator = INDIAN_INDICATORS[indicator_key]
                             
-<<<<<<< HEAD
                             with cols[col_idx]:
                                 chart = create_professional_chart(
                                     df[indicator_key], 
@@ -865,33 +756,6 @@ if not df.empty:
     with tab2:
         st.header("🔗 Correlation Analysis")
         st.markdown("**Understand relationships between different economic indicators**")
-=======
-                            st.metric(
-                                label="Value",
-                                value=f"{current:.2f}",
-                                delta=f"{change:+.2f}%"
-                            )
-    st.subheader("📊 Market Analytics")
-    
-    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
-    
-    with metric_col1:
-        st.metric("📈 Data Points", f"{len(df):,}")
-    
-    with metric_col2:
-        period = (df.index[-1] - df.index[0]).days
-        st.metric("📅 Time Period", f"{period} days")
-    
-    with metric_col3:
-        if "NIFTY_50" in df.columns:
-            volatility = df["NIFTY_50"].pct_change().std() * 100 * np.sqrt(252)
-            st.metric("📊 Annual Volatility", f"{volatility:.1f}%")
-    
-    with metric_col4:
-        st.metric("🔄 Data Quality", "Excellent")
-
-    with st.expander("📈 Detailed Market Analysis", expanded=False):
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
         
         if len(selected_indicators) >= 2:
             corr_chart = create_correlation_heatmap(df, selected_indicators)
@@ -959,7 +823,6 @@ if not df.empty:
             stats.columns = [INDIAN_INDICATORS[col]['name'] for col in stats.columns if col in INDIAN_INDICATORS]
             
             st.dataframe(stats, use_container_width=True)
-<<<<<<< HEAD
     with tab4:
         st.header("💾 Data Export & Analysis Tools")
         st.markdown("**Download data for external analysis**")
@@ -980,10 +843,6 @@ if not df.empty:
             )
             
             st.info(f"**File contains:** {len(df)} rows × {len(df.columns)} indicators covering {selected_range}")
-=======
-
-        st.markdown("### 💡 Market Insights")
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
         
         with export_col2:
             st.subheader("🔍 Data Preview")
@@ -1015,20 +874,3 @@ else:
         <p style="color: {COLORS['dark_text_primary']};">Unable to load market data. Please check your connection and try again.</p>
     </div>
     """, unsafe_allow_html=True)
-<<<<<<< HEAD
-=======
-st.markdown("---")
-st.markdown(f"""
-<div style="background: linear-gradient(135deg, {COLORS['dark_surface']} 0%, {COLORS['dark_surface_light']} 100%);
-           padding: 2rem; border-radius: 12px; text-align: center; 
-           border: 2px solid {COLORS['saffron']}; margin-top: 2rem;">
-    <h4 style="color: {COLORS['saffron']}; margin-top: 0;">🇮🇳 Indian Economic Dashboard Pro</h4>
-    <p style="color: {COLORS['dark_text_primary']}; margin-bottom: 0.5rem;">
-        <strong>Built with:</strong> Streamlit • Python • yfinance • Plotly
-    </p>
-    <p style="color: {COLORS['dark_text_secondary']}; font-size: 0.9rem; margin-bottom: 0;">
-        Multi-indicator analysis platform • Last updated: {datetime.datetime.now().strftime('%d %B %Y, %I:%M %p IST')}
-    </p>
-</div>
-""", unsafe_allow_html=True)
->>>>>>> cfc5fc23289c664ede725512836e99a218808165
