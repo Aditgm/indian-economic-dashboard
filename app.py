@@ -1,4 +1,3 @@
-# Indian Economic Dashboard - Day 2 (Complete Fixed Version)
 import streamlit as st
 import pandas as pd
 import yfinance as yf
@@ -6,16 +5,12 @@ import datetime
 import plotly.graph_objects as go
 import numpy as np
 from config import INDIAN_INDICATORS, CATEGORIES, DATE_RANGES
-
-# Configure the page
 st.set_page_config(
     page_title="Indian Economic Dashboard Pro",
     page_icon="🇮🇳",
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-# Enhanced Color Scheme
 COLORS = {
     "saffron": "#FF9933",
     "white": "#FFFFFF", 
@@ -47,8 +42,6 @@ COLORS = {
     "border_dark": "#4A5568", 
     "border_light": "#CBD5E0"
 }
-
-# Enhanced CSS Styling with Color Theory
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -209,48 +202,75 @@ st.markdown(f"""
     }}
 </style>
 """, unsafe_allow_html=True)
+def calculate_moving_averages(data, windows):
+    """Calculate Simple Moving Averages for given time windows"""
+    ma_data = pd.DataFrame(index=data.index)
+    for window in windows:
+        if len(data) >= window:
+            ma_data[f'MA_{window}'] = data.rolling(window=window, min_periods=window).mean()
+        else:
+            ma_data[f'MA_{window}'] = None
+    return ma_data
 
-# Professional chart creation function
-def create_professional_chart(data, title, color, show_volume=False):
-    """Create a high-contrast, continuous line chart"""
+def calculate_technical_indicators(data, indicator_key):
+    """Calculate various technical indicators for a given data series"""
+    results = {}
+    if len(data) > 1:
+        daily_returns = data.pct_change()
+        results['volatility'] = daily_returns.std() * 100 * np.sqrt(252)
+        results['total_return'] = ((data.iloc[-1] / data.iloc[0]) - 1) * 100
+        results['max_drawdown'] = ((data.cummax() - data) / data.cummax()).max() * 100
+    
+    return results
+
+def create_professional_chart(data, title, color, ma_windows=None, chart_height=400):
+    """Create enhanced chart with optional technical indicators"""
     clean_data = data.dropna()
     
     if len(clean_data) == 0:
         return go.Figure()
     
     fig = go.Figure()
-    
-    # Main line trace
-    fig.add_trace(go.Scatter(
-        x=clean_data.index,
-        y=clean_data.values,
-        mode='lines',
-        line=dict(
-            color=color, 
-            width=3,
-            shape='linear'
-        ),
-        name=title,
-        hovertemplate='<b>%{y:,.2f}</b><br>%{x|%d %b %Y}<extra></extra>',
-        fill=None
-    ))
-    
-    # Subtle fill area
     fig.add_trace(go.Scatter(
         x=clean_data.index,
         y=clean_data.values,
         mode='lines',
         line=dict(color='rgba(0,0,0,0)'),
-        fill='tonexty',
+        fill='tozeroy',
         fillcolor=f'rgba({int(color[1:3], 16)}, {int(color[3:5], 16)}, {int(color[5:7], 16)}, 0.1)',
         showlegend=False,
         hoverinfo='skip'
     ))
-    
+    fig.add_trace(go.Scatter(
+        x=clean_data.index,
+        y=clean_data.values,
+        mode='lines',
+        line=dict(color=color, width=3, shape='linear'),
+        name=title,
+        hovertemplate='<b>%{y:,.2f}</b><br>%{x|%d %b %Y}<br><extra></extra>'
+    ))
+    if ma_windows and len(ma_windows) > 0:
+        ma_data = calculate_moving_averages(clean_data, ma_windows)
+        ma_colors = ['#FFD700', '#FFA500', '#FF6347', '#9370DB']
+        
+        for i, window in enumerate(ma_windows):
+            if f'MA_{window}' in ma_data.columns and not ma_data[f'MA_{window}'].isna().all():
+                fig.add_trace(go.Scatter(
+                    x=ma_data.index,
+                    y=ma_data[f'MA_{window}'],
+                    mode='lines',
+                    line=dict(
+                        color=ma_colors[i % len(ma_colors)], 
+                        width=2,
+                        dash='dash'
+                    ),
+                    name=f'MA-{window}',
+                    hovertemplate=f'MA {window}: %{{y:,.2f}}<br>%{{x|%d %b %Y}}<extra></extra>'
+                ))
     fig.update_layout(
         title=dict(
             text=f"<b>{title}</b>",
-            font=dict(size=20, color=COLORS['dark_text_primary'], family="Inter"),
+            font=dict(size=18, color=COLORS['dark_text_primary'], family="Inter"),
             x=0.5,
             y=0.95
         ),
@@ -261,8 +281,7 @@ def create_professional_chart(data, title, color, show_volume=False):
         xaxis=dict(
             gridcolor=COLORS['grid_dark'],
             linecolor=COLORS['border_dark'],
-            tickfont=dict(color=COLORS['dark_text_secondary'], size=12),
-            title_font=dict(color=COLORS['dark_text_primary'], size=14),
+            tickfont=dict(color=COLORS['dark_text_secondary'], size=11),
             showgrid=True,
             gridwidth=1,
             zeroline=False
@@ -271,22 +290,176 @@ def create_professional_chart(data, title, color, show_volume=False):
         yaxis=dict(
             gridcolor=COLORS['grid_dark'],
             linecolor=COLORS['border_dark'],
-            tickfont=dict(color=COLORS['dark_text_secondary'], size=12),
-            title_font=dict(color=COLORS['dark_text_primary'], size=14),
+            tickfont=dict(color=COLORS['dark_text_secondary'], size=11),
             showgrid=True,
             gridwidth=1,
             zeroline=False
         ),
         
-        margin=dict(l=60, r=60, t=80, b=60),
+        margin=dict(l=60, r=60, t=60, b=50),
         hovermode='x unified',
-        showlegend=False,
-        height=400
+        height=chart_height,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor='rgba(0,0,0,0.1)',
+            bordercolor=COLORS['border_dark'],
+            borderwidth=1
+        )
     )
     
     return fig
 
-# Enhanced data fetching function
+# ===== NEW: Correlation Analysis Functions =====
+def create_correlation_heatmap(df, selected_indicators):
+    """Create an interactive correlation heatmap"""
+    if len(df.columns) < 2:
+        return go.Figure()
+    
+    # Calculate correlation matrix of daily returns
+    returns_df = df.pct_change().dropna()
+    corr_matrix = returns_df.corr()
+    
+    # Create readable labels from indicator keys
+    labels = [INDIAN_INDICATORS[col]['name'] for col in corr_matrix.columns if col in INDIAN_INDICATORS]
+    
+    # Create the heatmap
+    fig = go.Figure(data=go.Heatmap(
+        z=corr_matrix.values,
+        x=labels,
+        y=labels,
+        colorscale='RdBu',
+        zmin=-1, 
+        zmax=1,
+        zmid=0,
+        hoverongaps=False,
+        text=np.around(corr_matrix.values, decimals=2),
+        texttemplate="%{text}",
+        textfont={"size": 12},
+        colorbar=dict(
+            title="Correlation Coefficient",
+            titlefont=dict(color=COLORS['dark_text_primary']),
+            tickfont=dict(color=COLORS['dark_text_secondary'])
+        )
+    ))
+    
+    fig.update_layout(
+        title=dict(
+            text="<b>Indicator Correlation Matrix</b><br><sub>Based on Daily Percentage Changes</sub>",
+            font=dict(size=18, color=COLORS['dark_text_primary']),
+            x=0.5
+        ),
+        plot_bgcolor=COLORS['dark_surface'],
+        paper_bgcolor=COLORS['dark_surface'],
+        font=dict(color=COLORS['dark_text_primary']),
+        height=600,
+        margin=dict(l=100, r=100, t=100, b=50),
+        xaxis=dict(
+            tickangle=-45,
+            tickfont=dict(color=COLORS['dark_text_secondary']),
+            showgrid=False
+        ),
+        yaxis=dict(
+            tickfont=dict(color=COLORS['dark_text_secondary']),
+            showgrid=False
+        )
+    )
+    
+    return fig
+# ===== FIXED: Correlation Analysis Functions =====
+def create_correlation_heatmap(df, selected_indicators):
+    """Create an interactive correlation heatmap"""
+    if len(df.columns) < 2:
+        return go.Figure()
+    
+    # Calculate correlation matrix of daily returns
+    returns_df = df.pct_change().dropna()
+    corr_matrix = returns_df.corr()
+    
+    # Create readable labels from indicator keys
+    labels = [INDIAN_INDICATORS[col]['name'] for col in corr_matrix.columns if col in INDIAN_INDICATORS]
+    
+    # Create the heatmap with FIXED colorbar properties
+    fig = go.Figure(data=go.Heatmap(
+        z=corr_matrix.values,
+        x=labels,
+        y=labels,
+        colorscale='RdBu',
+        zmin=-1, 
+        zmax=1,
+        zmid=0,
+        hoverongaps=False,
+        text=np.around(corr_matrix.values, decimals=2),
+        texttemplate="%{text}",
+        textfont={"size": 12},
+        colorbar=dict(
+            title=dict(
+                text="Correlation Coefficient",
+                font=dict(
+                    color=COLORS['dark_text_primary'],
+                    size=14,
+                    family="Inter"
+                )
+            ),
+            tickfont=dict(
+                color=COLORS['dark_text_secondary'],
+                size=12
+            ),
+            thickness=20,
+            len=0.8,
+            outlinecolor=COLORS['border_dark'],
+            outlinewidth=1
+        )
+    ))
+    
+    fig.update_layout(
+        title=dict(
+            text="<b>Indicator Correlation Matrix</b><br><sub>Based on Daily Percentage Changes</sub>",
+            font=dict(size=18, color=COLORS['dark_text_primary']),
+            x=0.5
+        ),
+        plot_bgcolor=COLORS['dark_surface'],
+        paper_bgcolor=COLORS['dark_surface'],
+        font=dict(color=COLORS['dark_text_primary']),
+        height=600,
+        margin=dict(l=100, r=100, t=100, b=50),
+        xaxis=dict(
+            tickangle=-45,
+            tickfont=dict(color=COLORS['dark_text_secondary']),
+            showgrid=False
+        ),
+        yaxis=dict(
+            tickfont=dict(color=COLORS['dark_text_secondary']),
+            showgrid=False
+        )
+    )
+    
+    return fig
+
+
+def get_correlation_insights(df, selected_indicators):
+    """Generate text insights about correlations"""
+    if len(df.columns) < 2:
+        return []
+    returns_df = df.pct_change().dropna()
+    corr_matrix = returns_df.corr()
+    insights = []
+    for i in range(len(corr_matrix.columns)):
+        for j in range(i+1, len(corr_matrix.columns)):
+            corr_val = corr_matrix.iloc[i, j]
+            indicator1 = INDIAN_INDICATORS[corr_matrix.columns[i]]['name']
+            indicator2 = INDIAN_INDICATORS[corr_matrix.columns[j]]['name']
+            
+            if corr_val > 0.7:
+                insights.append(f"🔗 **Strong positive correlation** between {indicator1} and {indicator2} ({corr_val:.2f})")
+            elif corr_val < -0.7:
+                insights.append(f"🔄 **Strong negative correlation** between {indicator1} and {indicator2} ({corr_val:.2f})")
+    
+    return insights
+
 @st.cache_data
 def get_indian_market_data(selected_indicators=None, days_back=365):
     """Fetch data for selected indicators with custom time period"""
@@ -325,8 +498,6 @@ def get_indian_market_data(selected_indicators=None, days_back=365):
         return df, status_info
     else:
         return pd.DataFrame(), status_info
-
-# Sample data function
 @st.cache_data
 def create_realistic_sample_data(selected_indicators=None, days_back=365):
     """Create realistic sample data for selected indicators"""
@@ -340,8 +511,6 @@ def create_realistic_sample_data(selected_indicators=None, days_back=365):
     
     np.random.seed(42)
     data_dict = {}
-    
-    # Sample data parameters for each indicator
     sample_params = {
         "NIFTY_50": {"base": 22000, "volatility": 0.02},
         "INR_USD": {"base": 83.0, "volatility": 0.003},
@@ -355,8 +524,6 @@ def create_realistic_sample_data(selected_indicators=None, days_back=365):
     
     for indicator_key in selected_indicators:
         params = sample_params.get(indicator_key, {"base": 1000, "volatility": 0.02})
-        
-        # Generate realistic price series
         returns = np.random.normal(0, params["volatility"], len(dates))
         prices = [params["base"]]
         
@@ -367,20 +534,17 @@ def create_realistic_sample_data(selected_indicators=None, days_back=365):
     
     return pd.DataFrame(data_dict)
 
-# ===== SIDEBAR CONTROLS =====
 st.sidebar.header("📊 Dashboard Controls")
 
-# Date range selector
 st.sidebar.subheader("📅 Time Period")
 selected_range = st.sidebar.selectbox(
     "Select time period:",
     options=list(DATE_RANGES.keys()),
-    index=3,  # Default to 1 Year
+    index=3, 
     help="Choose how far back to fetch data"
 )
 days_back = DATE_RANGES[selected_range]
 
-# Indicator selection
 st.sidebar.subheader("📈 Select Indicators")
 selected_indicators = []
 
@@ -389,8 +553,6 @@ for category, indicators in CATEGORIES.items():
     
     for indicator_key in indicators:
         indicator = INDIAN_INDICATORS[indicator_key]
-        
-        # Default selections
         default_selected = indicator_key in ['NIFTY_50', 'INR_USD']
         
         is_selected = st.sidebar.checkbox(
@@ -402,8 +564,6 @@ for category, indicators in CATEGORIES.items():
         
         if is_selected:
             selected_indicators.append(indicator_key)
-
-# Display mode
 st.sidebar.subheader("🎛️ Display Mode")
 display_mode = st.sidebar.radio(
     "Choose display style:",
@@ -411,7 +571,6 @@ display_mode = st.sidebar.radio(
     help="How to display selected indicators"
 )
 
-# Info panel
 st.sidebar.subheader("ℹ️ Selection Info")
 st.sidebar.info(f"""
 **Selected Period:** {selected_range}
@@ -419,7 +578,6 @@ st.sidebar.info(f"""
 **Display:** {display_mode}
 """)
 
-# Market overview
 st.sidebar.markdown(f"""
 <div style="background: linear-gradient(135deg, {COLORS['dark_surface']} 0%, {COLORS['dark_surface_light']} 100%); 
            padding: 1.5rem; border-radius: 12px; margin-bottom: 1.5rem; 
@@ -436,7 +594,6 @@ st.sidebar.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Market status
 current_time = datetime.datetime.now()
 market_open = current_time.weekday() < 5 and 9.25 <= current_time.hour + current_time.minute/60 <= 15.5
 
@@ -454,10 +611,8 @@ st.sidebar.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Data source toggle
 use_live_data = st.sidebar.toggle("📡 Use Live Data", value=True, help="Switch between live and sample data")
 
-# ===== MAIN CONTENT =====
 st.markdown("""
 <div class="main-header">
     <h1>🇮🇳 Indian Economic Dashboard Pro</h1>
@@ -465,18 +620,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Check if indicators are selected
 if not selected_indicators:
     st.warning("👆 Please select at least one indicator from the sidebar to begin analysis.")
     st.stop()
-
-# Load data with spinner
 with st.spinner(f'🔄 Loading {len(selected_indicators)} indicators for {selected_range}...'):
     
     if use_live_data:
         df, status_messages = get_indian_market_data(selected_indicators, days_back)
-        
-        # Show status messages
         for msg in status_messages:
             if "✅" in msg:
                 st.success(msg)
@@ -500,18 +650,13 @@ with st.spinner(f'🔄 Loading {len(selected_indicators)} indicators for {select
     else:
         df = create_realistic_sample_data(selected_indicators, days_back)
         data_source = "Sample Data"
-
-# Main dashboard content
 if not df.empty:
-    # Success message
     st.markdown(f"""
     <div class="success-box">
         <h4 style="color: {COLORS['success']}; margin-top: 0;">✅ Dashboard Ready</h4>
         <p><strong>Source:</strong> {data_source} • <strong>Records:</strong> {len(df):,} • <strong>Updated:</strong> {df.index[-1].strftime('%d %B %Y')}</p>
     </div>
     """, unsafe_allow_html=True)
-    
-    # Portfolio Overview Metrics
     st.subheader("📊 Portfolio Overview")
     metric_cols = st.columns(min(len(selected_indicators), 4))
     
@@ -529,146 +674,196 @@ if not df.empty:
                     value=f"{current_val:.2f}",
                     delta=f"{pct_change:+.2f}%"
                 )
-    
-    # Display charts based on selected mode
-    if display_mode == "Individual Charts":
-        st.subheader("📈 Individual Indicator Analysis")
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📈 **Technical Analysis**", 
+        "🔗 **Correlation Matrix**", 
+        "📊 **Market Analytics**", 
+        "💾 **Data Export**"
+    ])
+    with tab1:
+        st.header("📈 Technical Analysis")
+        st.markdown("**Analyze trends with price charts and moving averages**")
+        col1, col2 = st.columns([1, 1])
         
-        for indicator_key in selected_indicators:
-            if indicator_key in df.columns:
-                indicator = INDIAN_INDICATORS[indicator_key]
-                
-                # Create expandable section for each indicator
-                with st.expander(f"📊 {indicator['name']} - {indicator['category']}", expanded=True):
-                    st.markdown(f"**Description:** {indicator['description']}")
-                    
-                    # Create chart
-                    chart = create_professional_chart(
-                        df[indicator_key], 
-                        indicator['name'], 
-                        indicator['color']
-                    )
-                    st.plotly_chart(chart, use_container_width=True)
-                    
-                    # Quick stats
-                    stat_col1, stat_col2, stat_col3 = st.columns(3)
-                    
-                    with stat_col1:
-                        current = df[indicator_key].iloc[-1]
-                        st.metric("Current", f"{current:.2f} {indicator['unit']}")
-                    
-                    with stat_col2:
-                        period_high = df[indicator_key].max()
-                        st.metric("Period High", f"{period_high:.2f}")
-                    
-                    with stat_col3:
-                        period_low = df[indicator_key].min()
-                        st.metric("Period Low", f"{period_low:.2f}")
-    
-    elif display_mode == "Grid View":
-        st.subheader("📊 Grid Layout")
-        
-        # Create grid (2 charts per row)
-        cols_per_row = 2
-        rows_needed = (len(selected_indicators) + cols_per_row - 1) // cols_per_row
-        
-        for row in range(rows_needed):
-            cols = st.columns(cols_per_row)
+        with col1:
+            show_ma = st.checkbox("📊 Show Moving Averages", value=False)
             
-            for col_idx in range(cols_per_row):
-                indicator_idx = row * cols_per_row + col_idx
-                
-                if indicator_idx < len(selected_indicators):
-                    indicator_key = selected_indicators[indicator_idx]
-                    
-                    if indicator_key in df.columns:
-                        indicator = INDIAN_INDICATORS[indicator_key]
+        with col2:
+            ma_windows = []
+            if show_ma:
+                ma_windows = st.multiselect(
+                    'Select MA Periods:',
+                    options=[5, 10, 20, 50, 100, 200],
+                    default=[20, 50],
+                    help="Moving Average periods in days"
+                )
+        if display_mode == "Individual Charts":
+            for indicator_key in selected_indicators:
+                if indicator_key in df.columns:
+                    indicator = INDIAN_INDICATORS[indicator_key]
+                    with st.expander(f"📊 {indicator['name']} - Technical Analysis", expanded=True):
+                        st.markdown(f"**{indicator['description']}**")
+                        chart = create_professional_chart(
+                            df[indicator_key], 
+                            indicator['name'], 
+                            indicator['color'],
+                            ma_windows if show_ma else None
+                        )
+                        st.plotly_chart(chart, use_container_width=True)
+                        tech_indicators = calculate_technical_indicators(df[indicator_key], indicator_key)
                         
-                        with cols[col_idx]:
-                            st.markdown(f"**{indicator['name']}**")
-                            
-                            # Smaller chart for grid
-                            chart = create_professional_chart(
-                                df[indicator_key], 
-                                indicator['name'], 
-                                indicator['color']
-                            )
-                            chart.update_layout(height=300)
-                            st.plotly_chart(chart, use_container_width=True)
-                            
-                            # Current value
+                        metric_col1, metric_col2, metric_col3 = st.columns(3)
+                        
+                        with metric_col1:
                             current = df[indicator_key].iloc[-1]
-                            prev = df[indicator_key].iloc[-2] if len(df) > 1 else current
-                            change = ((current - prev) / prev) * 100 if prev != 0 else 0
+                            st.metric("Current Value", f"{current:.2f} {indicator['unit']}")
+                        
+                        with metric_col2:
+                            if 'volatility' in tech_indicators:
+                                st.metric("Volatility (Annual)", f"{tech_indicators['volatility']:.1f}%")
+                        
+                        with metric_col3:
+                            if 'total_return' in tech_indicators:
+                                st.metric("Total Return", f"{tech_indicators['total_return']:+.1f}%")
+        
+        elif display_mode == "Grid View":
+            st.subheader("Grid View - Technical Charts")
+            
+            cols_per_row = 2
+            rows_needed = (len(selected_indicators) + cols_per_row - 1) // cols_per_row
+            
+            for row in range(rows_needed):
+                cols = st.columns(cols_per_row)
+                
+                for col_idx in range(cols_per_row):
+                    indicator_idx = row * cols_per_row + col_idx
+                    
+                    if indicator_idx < len(selected_indicators):
+                        indicator_key = selected_indicators[indicator_idx]
+                        
+                        if indicator_key in df.columns:
+                            indicator = INDIAN_INDICATORS[indicator_key]
                             
-                            st.metric(
-                                label="Value",
-                                value=f"{current:.2f}",
-                                delta=f"{change:+.2f}%"
-                            )
-    
-    # Market Analytics Section
-    st.subheader("📊 Market Analytics")
-    
-    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
-    
-    with metric_col1:
-        st.metric("📈 Data Points", f"{len(df):,}")
-    
-    with metric_col2:
-        period = (df.index[-1] - df.index[0]).days
-        st.metric("📅 Time Period", f"{period} days")
-    
-    with metric_col3:
-        if "NIFTY_50" in df.columns:
-            volatility = df["NIFTY_50"].pct_change().std() * 100 * np.sqrt(252)
-            st.metric("📊 Annual Volatility", f"{volatility:.1f}%")
-    
-    with metric_col4:
-        st.metric("🔄 Data Quality", "Excellent")
-    
-    # Detailed Analysis Expander
-    with st.expander("📈 Detailed Market Analysis", expanded=False):
+                            with cols[col_idx]:
+                                chart = create_professional_chart(
+                                    df[indicator_key], 
+                                    indicator['name'], 
+                                    indicator['color'],
+                                    ma_windows if show_ma else None,
+                                    chart_height=350
+                                )
+                                st.plotly_chart(chart, use_container_width=True)
+    with tab2:
+        st.header("🔗 Correlation Analysis")
+        st.markdown("**Understand relationships between different economic indicators**")
         
-        analysis_col1, analysis_col2 = st.columns(2)
+        if len(selected_indicators) >= 2:
+            corr_chart = create_correlation_heatmap(df, selected_indicators)
+            st.plotly_chart(corr_chart, use_container_width=True)
+            st.subheader("💡 Key Insights")
+            insights = get_correlation_insights(df, selected_indicators)
+            
+            if insights:
+                for insight in insights:
+                    st.info(insight)
+            else:
+                st.info("📊 **Moderate correlations detected** - No extremely strong relationships found among selected indicators.")
+            with st.expander("❓ Understanding Correlation Values", expanded=False):
+                st.markdown("""
+                **Correlation Coefficient Guide:**
+                - **+0.7 to +1.0**: Strong positive correlation (move together)
+                - **+0.3 to +0.7**: Moderate positive correlation  
+                - **-0.3 to +0.3**: Weak/no correlation (independent movement)
+                - **-0.7 to -0.3**: Moderate negative correlation
+                - **-1.0 to -0.7**: Strong negative correlation (move opposite)
+                
+                **Financial Interpretation:**
+                - High correlation = Similar risk/return patterns
+                - Low correlation = Better diversification potential
+                - Negative correlation = Natural hedge opportunities
+                """)
+                
+        else:
+            st.warning("⚠️ Please select at least 2 indicatorsa to analyze correlations.")
+    with tab3:
+        st.header("📊 Market Analytics Dashboard")
+        st.markdown("**Statistical analysis and performance metrics**")
+        analytics_col1, analytics_col2, analytics_col3, analytics_col4 = st.columns(4)
         
-        with analysis_col1:
-            st.markdown("### 📊 Recent Performance")
+        with analytics_col1:
+            st.metric("📈 Data Points", f"{len(df):,}")
+        
+        with analytics_col2:
+            period = (df.index[-1] - df.index[0]).days
+            st.metric("📅 Analysis Period", f"{period} days")
+        
+        with analytics_col3:
+            avg_indicators = len(selected_indicators)
+            st.metric("📊 Indicators Tracked", f"{avg_indicators}")
+        
+        with analytics_col4:
+            completeness = (1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100
+            st.metric("🎯 Data Completeness", f"{completeness:.1f}%")
+        st.subheader("📋 Statistical Analysis")
+        
+        stats_col1, stats_col2 = st.columns(2)
+        
+        with stats_col1:
+            st.markdown("### Recent Performance (Last 10 Days)")
             recent_df = df.tail(10).copy()
             recent_df.index = recent_df.index.strftime('%Y-%m-%d')
-            st.dataframe(recent_df, use_container_width=True)
+            display_df = recent_df.copy()
+            display_df.columns = [INDIAN_INDICATORS[col]['name'] for col in display_df.columns if col in INDIAN_INDICATORS]
+            
+            st.dataframe(display_df, use_container_width=True)
         
-        with analysis_col2:
-            st.markdown("### 📋 Statistical Summary") 
+        with stats_col2:
+            st.markdown("### Statistical Summary")
             stats = df.describe()
+            stats.columns = [INDIAN_INDICATORS[col]['name'] for col in stats.columns if col in INDIAN_INDICATORS]
+            
             st.dataframe(stats, use_container_width=True)
+    with tab4:
+        st.header("💾 Data Export & Analysis Tools")
+        st.markdown("**Download data for external analysis**")
+        export_col1, export_col2 = st.columns(2)
         
-        # Market Insights
-        st.markdown("### 💡 Market Insights")
+        with export_col1:
+            st.subheader("📊 Export Raw Data")
+            export_df = df.copy()
+            export_df.columns = [INDIAN_INDICATORS[col]['name'] for col in export_df.columns if col in INDIAN_INDICATORS]
+            
+            csv = export_df.to_csv().encode('utf-8')
+            st.download_button(
+                label="📥 Download as CSV",
+                data=csv,
+                file_name=f'indian_economic_indicators_{selected_range.lower().replace(" ", "_")}_{datetime.datetime.now().strftime("%Y%m%d")}.csv',
+                mime='text/csv',
+                help="Download complete dataset for analysis in Excel, Python, etc."
+            )
+            
+            st.info(f"**File contains:** {len(df)} rows × {len(df.columns)} indicators covering {selected_range}")
         
-        insights_col1, insights_col2 = st.columns(2)
-        
-        with insights_col1:
-            if "NIFTY_50" in df.columns:
-                nifty_return = ((df["NIFTY_50"].iloc[-1] / df["NIFTY_50"].iloc[0]) - 1) * 100
-                st.markdown(f"""
-                <div class="info-box">
-                    <h5 style="color: {COLORS['nifty_color']}; margin-top: 0;">NIFTY 50 Analysis</h5>
-                    <p><strong>Total Return:</strong> {nifty_return:+.2f}%</p>
-                    <p><strong>Range:</strong> {df['NIFTY_50'].min():,.0f} - {df['NIFTY_50'].max():,.0f}</p>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        with insights_col2:
-            if "INR_USD" in df.columns:
-                inr_change_total = ((df["INR_USD"].iloc[-1] / df["INR_USD"].iloc[0]) - 1) * 100
-                st.markdown(f"""
-                <div class="info-box">
-                    <h5 style="color: {COLORS['inr_color']}; margin-top: 0;">INR/USD Analysis</h5>
-                    <p><strong>Currency Change:</strong> {inr_change_total:+.2f}%</p>
-                    <p><strong>Range:</strong> ₹{df['INR_USD'].min():.3f} - ₹{df['INR_USD'].max():.3f}</p>
-                </div>
-                """, unsafe_allow_html=True)
+        with export_col2:
+            st.subheader("🔍 Data Preview")
+            st.dataframe(
+                export_df.head(5), 
+                use_container_width=True
+            )
+            st.markdown("#### Data Quality Report")
+            quality_info = []
+            
+            for col in df.columns:
+                if col in INDIAN_INDICATORS:
+                    null_pct = (df[col].isnull().sum() / len(df)) * 100
+                    quality_info.append({
+                        'Indicator': INDIAN_INDICATORS[col]['name'],
+                        'Completeness': f"{100-null_pct:.1f}%",
+                        'Data Points': len(df[col].dropna())
+                    })
+            
+            quality_df = pd.DataFrame(quality_info)
+            st.dataframe(quality_df, use_container_width=True)
 
 else:
     st.markdown(f"""
@@ -679,19 +874,3 @@ else:
         <p style="color: {COLORS['dark_text_primary']};">Unable to load market data. Please check your connection and try again.</p>
     </div>
     """, unsafe_allow_html=True)
-
-# Enhanced Footer
-st.markdown("---")
-st.markdown(f"""
-<div style="background: linear-gradient(135deg, {COLORS['dark_surface']} 0%, {COLORS['dark_surface_light']} 100%);
-           padding: 2rem; border-radius: 12px; text-align: center; 
-           border: 2px solid {COLORS['saffron']}; margin-top: 2rem;">
-    <h4 style="color: {COLORS['saffron']}; margin-top: 0;">🇮🇳 Indian Economic Dashboard Pro</h4>
-    <p style="color: {COLORS['dark_text_primary']}; margin-bottom: 0.5rem;">
-        <strong>Built with:</strong> Streamlit • Python • yfinance • Plotly
-    </p>
-    <p style="color: {COLORS['dark_text_secondary']}; font-size: 0.9rem; margin-bottom: 0;">
-        Multi-indicator analysis platform • Last updated: {datetime.datetime.now().strftime('%d %B %Y, %I:%M %p IST')}
-    </p>
-</div>
-""", unsafe_allow_html=True)
