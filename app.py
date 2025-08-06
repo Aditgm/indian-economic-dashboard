@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 import numpy as np
 from config import INDIAN_INDICATORS, CATEGORIES, DATE_RANGES
 st.set_page_config(
-    page_title="Indian Economic Dashboard Pro",
+    page_title="Indian Economic Dashboard",
     page_icon="🇮🇳",
     layout="wide",
     initial_sidebar_state="expanded"
