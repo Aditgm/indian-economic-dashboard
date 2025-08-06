@@ -615,7 +615,7 @@ use_live_data = st.sidebar.toggle("📡 Use Live Data", value=True, help="Switch
 
 st.markdown("""
 <div class="main-header">
-    <h1>🇮🇳 Indian Economic Dashboard Pro</h1>
+    <h1>🇮🇳 Indian Economic Dashboard</h1>
     <p>Multi-Indicator Analysis & Real-time Market Data</p>
 </div>
 """, unsafe_allow_html=True)
