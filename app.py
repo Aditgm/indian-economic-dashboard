@@ -338,21 +338,13 @@ def create_professional_chart(data, title, color, ma_windows=None, chart_height=
     )
     
     return fig
-
-# ===== NEW: Correlation Analysis Functions =====
 def create_correlation_heatmap(df, selected_indicators):
     """Create an interactive correlation heatmap"""
     if len(df.columns) < 2:
         return go.Figure()
-    
-    # Calculate correlation matrix of daily returns
     returns_df = df.pct_change().dropna()
     corr_matrix = returns_df.corr()
-    
-    # Create readable labels from indicator keys
     labels = [INDIAN_INDICATORS[col]['name'] for col in corr_matrix.columns if col in INDIAN_INDICATORS]
-    
-    # Create the heatmap
     fig = go.Figure(data=go.Heatmap(
         z=corr_matrix.values,
         x=labels,
@@ -400,15 +392,9 @@ def create_correlation_heatmap(df, selected_indicators):
     """Create an interactive correlation heatmap"""
     if len(df.columns) < 2:
         return go.Figure()
-    
-    # Calculate correlation matrix of daily returns
     returns_df = df.pct_change().dropna()
     corr_matrix = returns_df.corr()
-    
-    # Create readable labels from indicator keys
     labels = [INDIAN_INDICATORS[col]['name'] for col in corr_matrix.columns if col in INDIAN_INDICATORS]
-    
-    # Create the heatmap with FIXED colorbar properties
     fig = go.Figure(data=go.Heatmap(
         z=corr_matrix.values,
         x=labels,
