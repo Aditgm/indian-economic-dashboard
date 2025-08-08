@@ -387,7 +387,6 @@ def create_correlation_heatmap(df, selected_indicators):
     )
     
     return fig
-# ===== FIXED: Correlation Analysis Functions =====
 def create_correlation_heatmap(df, selected_indicators):
     """Create an interactive correlation heatmap"""
     if len(df.columns) < 2:
@@ -471,12 +470,15 @@ def get_correlation_insights(df, selected_indicators):
                 insights.append(f"🔄 **Strong negative correlation** between {indicator1} and {indicator2} ({corr_val:.2f})")
     
     return insights
+import concurrent.futures
+from threading import Lock
 
-@st.cache_data
-def get_indian_market_data(selected_indicators=None, days_back=365):
-    """Fetch data for selected indicators with custom time period"""
+@st.cache_data(ttl=CACHE_TTL, show_spinner=False)
+@monitor_performance("Parallel Data Fetch")
+def get_optimized_market_data(selected_indicators: List[str], days_back: int = 365) -> Tuple[pd.DataFrame, List[str], Dict]:
+    """Optimized parallel data fetching with comprehensive error handling"""
     
-    if selected_indicators is None:
+    if not selected_indicators:
         selected_indicators = ["NIFTY_50", "INR_USD"]
     
     end_date = datetime.datetime.now()
@@ -484,32 +486,167 @@ def get_indian_market_data(selected_indicators=None, days_back=365):
     
     data_dict = {}
     status_info = []
-    
-    for indicator_key in selected_indicators:
-        if indicator_key in INDIAN_INDICATORS:
-            try:
-                indicator = INDIAN_INDICATORS[indicator_key]
-                ticker = indicator["ticker"]
-                
-                stock = yf.Ticker(ticker)
-                hist = stock.history(start=start_date, end=end_date)
-                
-                if not hist.empty and len(hist) >= 10:
-                    clean_data = hist['Close'].fillna(method='ffill').fillna(method='bfill')
-                    data_dict[indicator_key] = clean_data
-                    status_info.append(f"✅ {indicator['name']}: {len(clean_data)} data points loaded")
-                else:
-                    status_info.append(f"⚠️ {indicator['name']}: Insufficient data")
+    performance_stats = {
+        'total_indicators': len(selected_indicators),
+        'successful_fetches': 0,
+        'failed_fetches': 0,
+        'data_quality_score': 0
+    }
+    def fetch_single_indicator(indicator_key: str) -> Tuple[str, Optional[pd.Series], str]:
+        """Fetch data for a single indicator"""
+        try:
+            if indicator_key not in INDIAN_INDICATORS:
+                return indicator_key, None, f"❌ Unknown indicator: {indicator_key}"
+            indicator = INDIAN_INDICATORS[indicator_key]
+            ticker = indicator["ticker"]
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    stock = yf.Ticker(ticker)
+                    hist = stock.history(start=start_date, end=end_date, progress=False)
+                    if not hist.empty and len(hist) >= 10:
+                        clean_data = hist['Close'].fillna(method='ffill').fillna(method='bfill')
+                        null_pct = (clean_data.isnull().sum() / len(clean_data)) * 100
+                        quality_score = max(0, 100 - null_pct)
+                        
+                        success_msg = f"✅ {indicator['name']}: {len(clean_data)} points (Quality: {quality_score:.1f}%)"
+                        return indicator_key, clean_data, success_msg                
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        error_msg = f"❌ {indicator['name']}: {str(e)[:50]}..."
+                        return indicator_key, None, error_msg
+                    time.sleep(0.5)
                     
-            except Exception as e:
-                status_info.append(f"❌ {indicator['name']}: {str(e)[:50]}...")
-    
+        except Exception as e:
+            error_msg = f"❌ {indicator_key}: Unexpected error - {str(e)[:50]}..."
+            return indicator_key, None, error_msg   
+        return indicator_key, None, f"⚠️ {indicator_key}: No data available"
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        future_to_indicator = {
+            executor.submit(fetch_single_indicator, indicator_key): indicator_key 
+            for indicator_key in selected_indicators
+        }
+        
+        for future in concurrent.futures.as_completed(future_to_indicator):
+            indicator_key, data, status_msg = future.result()
+            
+            if data is not None:
+                data_dict[indicator_key] = data
+                performance_stats['successful_fetches'] += 1
+            else:
+                performance_stats['failed_fetches'] += 1
+                
+            status_info.append(status_msg)
     if data_dict:
+        performance_stats['data_quality_score'] = (
+            performance_stats['successful_fetches'] / 
+            performance_stats['total_indicators']
+        ) * 100
+        
         df = pd.DataFrame(data_dict)
         df = df.fillna(method='ffill').fillna(method='bfill')
-        return df, status_info
+        
+        return df, status_info, performance_stats
     else:
-        return pd.DataFrame(), status_info
+        return pd.DataFrame(), status_info, performance_stats
+@st.cache_data(ttl=3600)
+@monitor_performance("Data Preprocessing")
+def preprocess_market_data(df: pd.DataFrame) -> dict:
+    """
+    Pre-computes expensive calculations once after data fetching.
+    This avoids re-calculating metrics every time a user interacts with the UI,
+    making the dashboard feel instantaneous.
+    """
+    
+    preprocessed_data = {
+        'raw_data': df,
+        'returns_data': None,
+        'correlation_matrix': None,
+        'volatility_metrics': {},
+        'trend_indicators': {},
+        'statistical_summary': {}
+    }
+    if not df.empty:
+        preprocessed_data['returns_data'] = df.pct_change().dropna()
+    if preprocessed_data['returns_data'] is not None and len(df.columns) >= 2:
+        preprocessed_data['correlation_matrix'] = preprocessed_data['returns_data'].corr()
+    for col in df.columns:
+        if col in INDIAN_INDICATORS:
+            data_series = df[col].dropna()
+            
+            if len(data_series) > 30:
+                returns = data_series.pct_change().dropna()
+                daily_vol = returns.std()
+                annualized_vol = daily_vol * np.sqrt(252) * 100
+                preprocessed_data['volatility_metrics'][col] = {
+                    'daily_volatility': daily_vol * 100,
+                    'annualized_volatility': annualized_vol,
+                    'volatility_category': 'High' if annualized_vol > 30 else 'Medium' if annualized_vol > 15 else 'Low'
+                }
+                ma_50 = data_series.rolling(50).mean().iloc[-1] if len(data_series) >= 50 else None
+                ma_200 = data_series.rolling(200).mean().iloc[-1] if len(data_series) >= 200 else None
+                current_price = data_series.iloc[-1]
+                
+                trend_direction = "Neutral"
+                if ma_50 and ma_200:
+                    if current_price > ma_50 > ma_200:
+                        trend_direction = "Strong Uptrend"
+                    elif current_price > ma_50:
+                        trend_direction = "Uptrend"
+                    elif current_price < ma_50 < ma_200:
+                        trend_direction = "Strong Downtrend"
+                    elif current_price < ma_50:
+                        trend_direction = "Downtrend"
+                preprocessed_data['trend_indicators'][col] = {
+                    'ma_50': ma_50,
+                    'ma_200': ma_200,
+                    'trend_direction': trend_direction,
+                    'trend_strength': abs(current_price - ma_50) / ma_50 * 100 if ma_50 else 0
+                }
+                preprocessed_data['statistical_summary'][col] = {
+                    'mean': data_series.mean(),
+                    'median': data_series.median(),
+                    'std_dev': data_series.std(),
+                    'skewness': data_series.skew(),
+                    'kurtosis': data_series.kurtosis()
+                }
+    
+    return preprocessed_data
+def display_data_quality_metrics(performance_stats: dict, status_messages: list):
+    """
+    Creates a professional dashboard to show the health and performance
+    of the data connections. This gives users confidence in the data.
+    """
+    
+    st.subheader("📊 Data Quality Dashboard")
+    
+    quality_col1, quality_col2, quality_col3, quality_col4 = st.columns(4)
+    
+    with quality_col1:
+        success_rate = (performance_stats.get('successful_fetches', 0) / 
+                       performance_stats.get('total_indicators', 1) * 100)
+        st.metric(
+            "API Success Rate",
+            f"{success_rate:.1f}%",
+            delta=f"{performance_stats.get('successful_fetches', 0)} of {performance_stats.get('total_indicators', 0)}"
+        )
+    
+    with quality_col2:
+        quality_score = performance_stats.get('data_quality_score', 0)
+        st.metric("Data Quality Score", f"{quality_score:.1f}%")
+    
+    with quality_col3:
+        load_time = st.session_state.performance_metrics.get("Parallel Data Fetch", 0)
+        st.metric("Data Load Time", f"{load_time:.2f}s")
+
+    with quality_col4:
+        last_update = datetime.datetime.now().strftime('%H:%M:%S IST')
+        st.metric("Last Updated", last_update)
+    with st.expander("🔍 View Detailed Data Fetch Status"):
+        for msg in status_messages:
+            if "✅" in msg: st.success(msg)
+            elif "⚠️" in msg: st.warning(msg)
+            elif "❌" in msg: st.error(msg)
 @st.cache_data
 def create_realistic_sample_data(selected_indicators=None, days_back=365):
     """Create realistic sample data for selected indicators"""
@@ -662,6 +799,31 @@ with st.spinner(f'🔄 Loading {len(selected_indicators)} indicators for {select
     else:
         df = create_realistic_sample_data(selected_indicators, days_back)
         data_source = "Sample Data"
+st.sidebar.subheader("🔄 Data Refresh Settings")
+auto_refresh = st.sidebar.checkbox(
+    "Enable Auto-Refresh", 
+    value=False, 
+    help="Automatically refresh data every few minutes. Useful during market hours."
+)
+if auto_refresh:
+    refresh_interval = st.sidebar.selectbox(
+        "Refresh Interval",
+        options=[1, 2, 5, 10, 15],
+        index=2,
+        format_func=lambda x: f"{x} minute{'s' if x > 1 else ''}",
+        help="How often to refresh the data"
+    )
+    if 'last_refresh' not in st.session_state:
+        st.session_state.last_refresh = time.time()
+    
+    current_time = time.time()
+    if (current_time - st.session_state.last_refresh) / 60 >= refresh_interval:
+        st.session_state.last_refresh = time.time()
+        st.cache_data.clear()
+if st.sidebar.button("🔄 Manual Refresh Now"):
+    st.cache_data.clear()
+    st.rerun()
+
 if not df.empty:
     st.markdown(f"""
     <div class="success-box">
