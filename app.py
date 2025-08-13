@@ -503,7 +503,7 @@ def get_optimized_market_data(selected_indicators: List[str], days_back: int = 3
             for attempt in range(max_retries):
                 try:
                     stock = yf.Ticker(ticker)
-                    hist = stock.history(start=start_date, end=end_date, progress=False)
+                    hist = stock.history(start=start_date, end=end_date)
                     if not hist.empty and len(hist) >= 10:
                         clean_data = hist['Close'].fillna(method='ffill').fillna(method='bfill')
                         null_pct = (clean_data.isnull().sum() / len(clean_data)) * 100
@@ -612,6 +612,148 @@ def preprocess_market_data(df: pd.DataFrame) -> dict:
                 }
     
     return preprocessed_data
+# ===== NEW: Advanced Analytics Functions =====
+def calculate_risk_metrics(data: pd.Series, confidence_level: float = 0.05) -> Dict:
+    """Calculate advanced risk metrics for financial analysis"""
+    
+    returns = data.pct_change().dropna()
+    
+    if len(returns) < 30:
+        return {}
+    
+    # Value at Risk (VaR) calculation
+    var_95 = returns.quantile(confidence_level) * 100
+    var_99 = returns.quantile(0.01) * 100
+    
+    # Expected Shortfall (CVaR)
+    cvar_95 = returns[returns <= returns.quantile(confidence_level)].mean() * 100
+    
+    # Maximum Drawdown
+    cumulative = (1 + returns).cumprod()
+    rolling_max = cumulative.expanding().max()
+    drawdown = (cumulative - rolling_max) / rolling_max
+    max_drawdown = drawdown.min() * 100
+    
+    # Sharpe Ratio (assuming risk-free rate of 6% for India)
+    risk_free_rate = 0.06 / 252  # Daily risk-free rate
+    excess_returns = returns - risk_free_rate
+    sharpe_ratio = excess_returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
+    
+    # Volatility clustering (GARCH-like behavior)
+    returns_squared = returns ** 2
+    volatility_clustering = returns_squared.autocorr(lag=1) if len(returns_squared) > 1 else 0
+    
+    return {
+        'var_95': var_95,
+        'var_99': var_99,
+        'cvar_95': cvar_95,
+        'max_drawdown': max_drawdown,
+        'sharpe_ratio': sharpe_ratio,
+        'volatility_clustering': volatility_clustering,
+        'annualized_return': returns.mean() * 252 * 100,
+        'annualized_volatility': returns.std() * np.sqrt(252) * 100
+    }
+
+def create_risk_analysis_chart(data: pd.Series, indicator_name: str) -> go.Figure:
+    """Create comprehensive risk analysis visualization"""
+    
+    returns = data.pct_change().dropna()
+    
+    fig = go.Figure()
+    
+    # Histogram of returns
+    fig.add_trace(go.Histogram(
+        x=returns * 100,
+        nbinsx=50,
+        name='Daily Returns Distribution',
+        marker=dict(
+            color='rgba(58, 161, 105, 0.7)',
+            line=dict(color='rgba(58, 161, 105, 1)', width=1)
+        ),
+        hovertemplate='Return Range: %{x:.1f}%<br>Frequency: %{y}<extra></extra>'
+    ))
+    
+    # Add VaR lines
+    var_95 = returns.quantile(0.05) * 100
+    var_99 = returns.quantile(0.01) * 100
+    
+    fig.add_vline(x=var_95, line_dash="dash", line_color="orange", 
+                  annotation_text=f"VaR 95%: {var_95:.2f}%")
+    fig.add_vline(x=var_99, line_dash="dash", line_color="red", 
+                  annotation_text=f"VaR 99%: {var_99:.2f}%")
+    
+    fig.update_layout(
+        title=f"<b>Risk Analysis: {indicator_name}</b>",
+        xaxis_title="Daily Returns (%)",
+        yaxis_title="Frequency",
+        plot_bgcolor=COLORS['dark_surface'],
+        paper_bgcolor=COLORS['dark_surface'],
+        font=dict(color=COLORS['dark_text_primary']),
+        height=400
+    )
+    
+    return fig
+
+@st.cache_data(ttl=CACHE_TTL)
+def generate_market_insights(preprocessed_data: Dict) -> Dict[str, List[str]]:
+    """Generate intelligent market insights from preprocessed data"""
+    
+    insights = {
+        'trend_analysis': [],
+        'risk_assessment': [],
+        'correlation_insights': [],
+        'performance_highlights': []
+    }
+    trend_data = preprocessed_data.get('trend_indicators', {})
+    for indicator_key, trend_info in trend_data.items():
+        indicator_name = INDIAN_INDICATORS[indicator_key]['name']
+        direction = trend_info['trend_direction']
+        strength = trend_info['trend_strength']
+        
+        if direction in ['Strong Uptrend', 'Uptrend']:
+            insights['trend_analysis'].append(
+                f"📈 **{indicator_name}** shows {direction.lower()} with {strength:.1f}% deviation from MA-50"
+            )
+        elif direction in ['Strong Downtrend', 'Downtrend']:
+            insights['trend_analysis'].append(
+                f"📉 **{indicator_name}** shows {direction.lower()} with {strength:.1f}% deviation from MA-50"
+            )
+    volatility_data = preprocessed_data.get('volatility_metrics', {})
+    for indicator_key, vol_info in volatility_data.items():
+        indicator_name = INDIAN_INDICATORS[indicator_key]['name']
+        vol_category = vol_info['volatility_category']
+        annualized_vol = vol_info['annualized_volatility']
+        
+        if vol_category == 'High':
+            insights['risk_assessment'].append(
+                f"⚠️ **{indicator_name}** shows high volatility ({annualized_vol:.1f}% annually) - Higher risk/reward potential"
+            )
+        elif vol_category == 'Low':
+            insights['risk_assessment'].append(
+                f"✅ **{indicator_name}** shows low volatility ({annualized_vol:.1f}% annually) - More stable investment"
+            )
+    if preprocessed_data.get('correlation_matrix') is not None:
+        corr_matrix = preprocessed_data['correlation_matrix']
+        strong_correlations = []
+        
+        for i in range(len(corr_matrix.columns)):
+            for j in range(i+1, len(corr_matrix.columns)):
+                corr_val = corr_matrix.iloc[i, j]
+                if abs(corr_val) > 0.7:
+                    indicator1 = INDIAN_INDICATORS[corr_matrix.columns[i]]['name']
+                    indicator2 = INDIAN_INDICATORS[corr_matrix.columns[j]]['name']
+                    
+                    if corr_val > 0.7:
+                        insights['correlation_insights'].append(
+                            f"🔗 **{indicator1}** and **{indicator2}** move together strongly (correlation: {corr_val:.2f})"
+                        )
+                    else:
+                        insights['correlation_insights'].append(
+                            f"🔄 **{indicator1}** and **{indicator2}** move in opposite directions (correlation: {corr_val:.2f})"
+                        )
+    
+    return insights
+
 def display_data_quality_metrics(performance_stats: dict, status_messages: list):
     """
     Creates a professional dashboard to show the health and performance
@@ -775,7 +917,7 @@ if not selected_indicators:
 with st.spinner(f'🔄 Loading {len(selected_indicators)} indicators for {selected_range}...'):
     
     if use_live_data:
-        df, status_messages = get_indian_market_data(selected_indicators, days_back)
+        df, status_messages,performance_data = get_optimized_market_data(selected_indicators, days_back)
         for msg in status_messages:
             if "✅" in msg:
                 st.success(msg)
@@ -960,53 +1102,122 @@ if not df.empty:
         else:
             st.warning("⚠️ Please select at least 2 indicatorsa to analyze correlations.")
     with tab3:
-        st.header("📊 Market Analytics Dashboard")
-        st.markdown("**Statistical analysis and performance metrics**")
-        analytics_col1, analytics_col2, analytics_col3, analytics_col4 = st.columns(4)
-        
-        with analytics_col1:
-            st.metric("📈 Data Points", f"{len(df):,}")
-        
-        with analytics_col2:
-            period = (df.index[-1] - df.index[0]).days
-            st.metric("📅 Analysis Period", f"{period} days")
-        
-        with analytics_col3:
-            avg_indicators = len(selected_indicators)
-            st.metric("📊 Indicators Tracked", f"{avg_indicators}")
-        
-        with analytics_col4:
-            completeness = (1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100
-            st.metric("🎯 Data Completeness", f"{completeness:.1f}%")
-        st.subheader("📋 Statistical Analysis")
-        
-        stats_col1, stats_col2 = st.columns(2)
-        
-        with stats_col1:
-            st.markdown("### Recent Performance (Last 10 Days)")
-            recent_df = df.tail(10).copy()
-            recent_df.index = recent_df.index.strftime('%Y-%m-%d')
-            display_df = recent_df.copy()
-            display_df.columns = [INDIAN_INDICATORS[col]['name'] for col in display_df.columns if col in INDIAN_INDICATORS]
-            
-            st.dataframe(display_df, use_container_width=True)
-        
-        with stats_col2:
-            st.markdown("### Statistical Summary")
-            stats = df.describe()
-            stats.columns = [INDIAN_INDICATORS[col]['name'] for col in stats.columns if col in INDIAN_INDICATORS]
-            
-            st.dataframe(stats, use_container_width=True)
+        st.header("📊 Advanced Market Analytics")
+        st.markdown("**Professional risk analysis and market intelligence**")
+        if 'performance_stats' in locals():
+            display_data_quality_metrics(performance_stats, status_messages)
+        st.markdown("---")
+        analytics_mode = st.selectbox(
+            "Select Analysis Type:",
+            ["Portfolio Overview", "Risk Analysis", "Performance Metrics", "Market Intelligence"],
+            help="Choose the type of advanced analysis to display"
+        )
+        if analytics_mode == "Portfolio Overview":
+            overview_col1, overview_col2, overview_col3, overview_col4 = st.columns(4)
+            with overview_col1:
+                st.metric("📈 Data Points", f"{len(df):,}")
+            with overview_col2:
+                period = (df.index[-1] - df.index[0]).days
+                st.metric("📅 Analysis Period", f"{period} days")
+            with overview_col3:
+                st.metric("📊 Indicators Tracked", f"{len(selected_indicators)}")
+            with overview_col4:
+                if 'performance_stats' in locals():
+                    quality_score = performance_stats.get('data_quality_score', 0)
+                    st.metric("🎯 Data Quality", f"{quality_score:.1f}%")
+            if len(selected_indicators) > 1:
+                st.subheader("📈 Performance Comparison")
+                performance_data = []
+                for indicator_key in selected_indicators:
+                    if indicator_key in df.columns and indicator_key in INDIAN_INDICATORS:
+                        indicator_name = INDIAN_INDICATORS[indicator_key]['name']
+                        data_series = df[indicator_key]
+                        total_return = ((data_series.iloc[-1] / data_series.iloc[0]) - 1) * 100
+                        volatility = data_series.pct_change().std() * np.sqrt(252) * 100
+                        risk_metrics = calculate_risk_metrics(data_series)
+                        performance_data.append({
+                            'Indicator': indicator_name,
+                            'Total Return (%)': f"{total_return:+.2f}",
+                            'Annualized Volatility (%)': f"{volatility:.2f}",
+                            'Sharpe Ratio': f"{risk_metrics.get('sharpe_ratio', 0):.2f}",
+                            'Max Drawdown (%)': f"{risk_metrics.get('max_drawdown', 0):.2f}",
+                            'Current Value': f"{data_series.iloc[-1]:.2f}"
+                        })
+                performance_df = pd.DataFrame(performance_data)
+                st.dataframe(performance_df, use_container_width=True)
+        elif analytics_mode == "Risk Analysis":
+            st.subheader("⚠️ Risk Analysis Dashboard")
+            risk_indicator = st.selectbox(
+                "Select Indicator for Detailed Risk Analysis:",
+                selected_indicators,
+                format_func=lambda x: INDIAN_INDICATORS[x]['name']
+            )
+            if risk_indicator in df.columns:
+                data_series = df[risk_indicator]
+                indicator_name = INDIAN_INDICATORS[risk_indicator]['name']
+                risk_metrics = calculate_risk_metrics(data_series)
+                if risk_metrics:
+                    rc1, rc2, rc3, rc4 = st.columns(4)
+
+                    with rc1:
+                        st.metric("VaR (95%)", f"{risk_metrics['var_95']:.2f}%",
+                                help="Value at Risk - maximum expected loss 95% of the time")
+                    with rc2:
+                        st.metric("Max Drawdown", f"{risk_metrics['max_drawdown']:.2f}%",
+                                help="Largest peak-to-trough decline")
+                    with rc3:
+                        st.metric("Sharpe Ratio", f"{risk_metrics['sharpe_ratio']:.2f}",
+                                help="Risk-adjusted return")
+                    with rc4:
+                        st.metric("Annual Volatility", f"{risk_metrics['annualized_volatility']:.1f}%",
+                                help="Annualized price volatility")
+
+                    risk_chart = create_risk_analysis_chart(data_series, indicator_name)
+                    st.plotly_chart(risk_chart, use_container_width=True)
+
+                    st.info(f"""
+    **Risk Profile for {indicator_name}:**
+    - **VaR 95 %**: On 95 % of days, losses won’t exceed {abs(risk_metrics['var_95']):.2f} %
+    - **Sharpe Ratio**: {'Excellent' if risk_metrics['sharpe_ratio'] > 2 else 'Good' if risk_metrics['sharpe_ratio'] > 1 else 'Average' if risk_metrics['sharpe_ratio'] > 0 else 'Poor'}
+    - **Volatility**: {'High' if risk_metrics['annualized_volatility'] > 30 else 'Medium' if risk_metrics['annualized_volatility'] > 15 else 'Low'}
+    """)
+        elif analytics_mode == "Market Intelligence":
+            st.subheader("🧠 AI-Powered Market Insights")
+
+            if 'preprocessed_data' in locals():
+                insights = generate_market_insights(preprocessed_data)
+                insight_tabs = st.tabs(["🔍 Trend Analysis", "⚠️ Risk Assessment",
+                                        "🔗 Correlations", "🏆 Performance"])
+                with insight_tabs[0]:
+                    if insights['trend_analysis']:
+                        for text in insights['trend_analysis']:
+                            st.markdown(text)
+                    else:
+                        st.info("📊 No significant trend patterns detected.")
+                with insight_tabs[1]:
+                    if insights['risk_assessment']:
+                        for text in insights['risk_assessment']:
+                            st.markdown(text)
+                    else:
+                        st.info("⚖️ All indicators show moderate risk levels.")
+                with insight_tabs[2]:
+                    if insights['correlation_insights']:
+                        for text in insights['correlation_insights']:
+                            st.markdown(text)
+                    else:
+                        st.info("🔗 No strong correlations detected.")
+                with insight_tabs[3]:
+                    st.info("🚀 Performance insights will be enhanced with longer historical data.")
+        else:
+            st.subheader("📈 Summary Performance Metrics (coming soon)")
     with tab4:
         st.header("💾 Data Export & Analysis Tools")
         st.markdown("**Download data for external analysis**")
         export_col1, export_col2 = st.columns(2)
-        
         with export_col1:
             st.subheader("📊 Export Raw Data")
             export_df = df.copy()
             export_df.columns = [INDIAN_INDICATORS[col]['name'] for col in export_df.columns if col in INDIAN_INDICATORS]
-            
             csv = export_df.to_csv().encode('utf-8')
             st.download_button(
                 label="📥 Download as CSV",
@@ -1014,10 +1225,8 @@ if not df.empty:
                 file_name=f'indian_economic_indicators_{selected_range.lower().replace(" ", "_")}_{datetime.datetime.now().strftime("%Y%m%d")}.csv',
                 mime='text/csv',
                 help="Download complete dataset for analysis in Excel, Python, etc."
-            )
-            
+            )    
             st.info(f"**File contains:** {len(df)} rows × {len(df.columns)} indicators covering {selected_range}")
-        
         with export_col2:
             st.subheader("🔍 Data Preview")
             st.dataframe(
@@ -1025,8 +1234,7 @@ if not df.empty:
                 use_container_width=True
             )
             st.markdown("#### Data Quality Report")
-            quality_info = []
-            
+            quality_info = []  
             for col in df.columns:
                 if col in INDIAN_INDICATORS:
                     null_pct = (df[col].isnull().sum() / len(df)) * 100
@@ -1034,11 +1242,9 @@ if not df.empty:
                         'Indicator': INDIAN_INDICATORS[col]['name'],
                         'Completeness': f"{100-null_pct:.1f}%",
                         'Data Points': len(df[col].dropna())
-                    })
-            
+                    })   
             quality_df = pd.DataFrame(quality_info)
             st.dataframe(quality_df, use_container_width=True)
-
 else:
     st.markdown(f"""
     <div style="background: linear-gradient(135deg, {COLORS['error']}15 0%, {COLORS['error']}25 100%);
