@@ -557,7 +557,6 @@ def preprocess_market_data(df: pd.DataFrame) -> dict:
     This avoids re-calculating metrics every time a user interacts with the UI,
     making the dashboard feel instantaneous.
     """
-    
     preprocessed_data = {
         'raw_data': df,
         'returns_data': None,
@@ -573,7 +572,6 @@ def preprocess_market_data(df: pd.DataFrame) -> dict:
     for col in df.columns:
         if col in INDIAN_INDICATORS:
             data_series = df[col].dropna()
-            
             if len(data_series) > 30:
                 returns = data_series.pct_change().dropna()
                 daily_vol = returns.std()
@@ -586,7 +584,6 @@ def preprocess_market_data(df: pd.DataFrame) -> dict:
                 ma_50 = data_series.rolling(50).mean().iloc[-1] if len(data_series) >= 50 else None
                 ma_200 = data_series.rolling(200).mean().iloc[-1] if len(data_series) >= 200 else None
                 current_price = data_series.iloc[-1]
-                
                 trend_direction = "Neutral"
                 if ma_50 and ma_200:
                     if current_price > ma_50 > ma_200:
@@ -612,7 +609,6 @@ def preprocess_market_data(df: pd.DataFrame) -> dict:
                 }
     
     return preprocessed_data
-# ===== NEW: Advanced Analytics Functions =====
 def calculate_risk_metrics(data: pd.Series, confidence_level: float = 0.05) -> Dict:
     """Calculate advanced risk metrics for financial analysis"""
     
@@ -620,29 +616,20 @@ def calculate_risk_metrics(data: pd.Series, confidence_level: float = 0.05) -> D
     
     if len(returns) < 30:
         return {}
-    
-    # Value at Risk (VaR) calculation
     var_95 = returns.quantile(confidence_level) * 100
     var_99 = returns.quantile(0.01) * 100
-    
-    # Expected Shortfall (CVaR)
     cvar_95 = returns[returns <= returns.quantile(confidence_level)].mean() * 100
-    
-    # Maximum Drawdown
+
     cumulative = (1 + returns).cumprod()
     rolling_max = cumulative.expanding().max()
     drawdown = (cumulative - rolling_max) / rolling_max
     max_drawdown = drawdown.min() * 100
-    
-    # Sharpe Ratio (assuming risk-free rate of 6% for India)
-    risk_free_rate = 0.06 / 252  # Daily risk-free rate
+    risk_free_rate = 0.06 / 252
     excess_returns = returns - risk_free_rate
     sharpe_ratio = excess_returns.mean() / returns.std() * np.sqrt(252) if returns.std() > 0 else 0
     
-    # Volatility clustering (GARCH-like behavior)
     returns_squared = returns ** 2
     volatility_clustering = returns_squared.autocorr(lag=1) if len(returns_squared) > 1 else 0
-    
     return {
         'var_95': var_95,
         'var_99': var_99,
@@ -653,15 +640,10 @@ def calculate_risk_metrics(data: pd.Series, confidence_level: float = 0.05) -> D
         'annualized_return': returns.mean() * 252 * 100,
         'annualized_volatility': returns.std() * np.sqrt(252) * 100
     }
-
 def create_risk_analysis_chart(data: pd.Series, indicator_name: str) -> go.Figure:
     """Create comprehensive risk analysis visualization"""
-    
     returns = data.pct_change().dropna()
-    
     fig = go.Figure()
-    
-    # Histogram of returns
     fig.add_trace(go.Histogram(
         x=returns * 100,
         nbinsx=50,
@@ -672,16 +654,12 @@ def create_risk_analysis_chart(data: pd.Series, indicator_name: str) -> go.Figur
         ),
         hovertemplate='Return Range: %{x:.1f}%<br>Frequency: %{y}<extra></extra>'
     ))
-    
-    # Add VaR lines
     var_95 = returns.quantile(0.05) * 100
     var_99 = returns.quantile(0.01) * 100
-    
     fig.add_vline(x=var_95, line_dash="dash", line_color="orange", 
                   annotation_text=f"VaR 95%: {var_95:.2f}%")
     fig.add_vline(x=var_99, line_dash="dash", line_color="red", 
                   annotation_text=f"VaR 99%: {var_99:.2f}%")
-    
     fig.update_layout(
         title=f"<b>Risk Analysis: {indicator_name}</b>",
         xaxis_title="Daily Returns (%)",
@@ -691,7 +669,6 @@ def create_risk_analysis_chart(data: pd.Series, indicator_name: str) -> go.Figur
         font=dict(color=COLORS['dark_text_primary']),
         height=400
     )
-    
     return fig
 
 @st.cache_data(ttl=CACHE_TTL)
