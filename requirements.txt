@@ -6,3 +6,5 @@ numpy
 requests
 beautifulsoup4
 kaleido>=0.2.1
+scipy
+python-dateutil>=2.8.0
