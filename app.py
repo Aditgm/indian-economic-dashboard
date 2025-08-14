@@ -12,9 +12,30 @@ from functools import wraps
 from typing import Dict, List, Optional, Tuple
 import concurrent.futures
 from threading import Lock
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+import os
+import subprocess
+def setup_chrome_for_streamlit_cloud():
+    """Configure Chrome for Streamlit Cloud hosting"""
+    if 'STREAMLIT_SERVER_PORT' in os.environ:
+        chrome_paths = [
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable'
+        ]
+        
+        for path in chrome_paths:
+            if os.path.exists(path):
+                os.environ['CHROME_EXECUTABLE'] = path
+                print(f"✅ Chrome set for Streamlit Cloud: {path}")
+                break
+        else:
+            print("⚠️ Chrome not found - PNG export disabled")
+    
+    return True
+setup_chrome_for_streamlit_cloud()
 
 def monitor_performance(func_name: str):
     """Decorator to monitor function performance"""
