@@ -275,6 +275,14 @@ def create_professional_chart(data, title, color, ma_windows=None, chart_height=
         name=title,
         hovertemplate='<b>%{y:,.2f}</b><br>%{x|%d %b %Y}<br><extra></extra>'
     ))
+    y_min = float(np.nanmin(clean_data.values))
+    y_max = float(np.nanmax(clean_data.values))
+    if y_max > y_min:
+        pad = 0.05 * (y_max - y_min)
+    else:
+        pad = 0.01 if y_min == 0 else abs(0.05 * y_min)
+    y_lower = y_min - pad
+    y_upper = y_max + pad
     if ma_windows and len(ma_windows) > 0:
         ma_data = calculate_moving_averages(clean_data, ma_windows)
         ma_colors = ['#FFD700', '#FFA500', '#FF6347', '#9370DB']
@@ -319,7 +327,9 @@ def create_professional_chart(data, title, color, ma_windows=None, chart_height=
             tickfont=dict(color=COLORS['dark_text_secondary'], size=11),
             showgrid=True,
             gridwidth=1,
-            zeroline=False
+            zeroline=False,
+            autorange=False,
+            range=[y_lower, y_upper]
         ),
         
         margin=dict(l=60, r=60, t=60, b=50),
