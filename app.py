@@ -414,18 +414,31 @@ def create_professional_chart(data, title, color, ma_windows=None, chart_height=
     return fig
 
 def export_chart_as_png(fig, chart_title, quality="High"):
-    if not get_kaleido():
-        st.error("Install kaleido: pip install kaleido")
+    """Export with cloud-friendly fallback"""
+    try:
+        import os
+        is_cloud = os.getenv('STREAMLIT_SHARING_MODE') or 'streamlit.io' in os.getenv('HOSTNAME', '')
+        if is_cloud:
+            return None, None
+        if not get_kaleido():
+            return None, None
+        scale_map = {"Standard": 1, "High": 2, "Ultra": 3}
+        scale = scale_map.get(quality, 2)
+        png_bytes = fig.to_image(format="png", width=1200, height=600, scale=scale)
+        safe_title = "".join(c for c in chart_title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        safe_title = safe_title.replace(' ', '_').lower()
+        filename = f"{safe_title}_chart.png"
+        return png_bytes, filename
+    except Exception as e:
+        st.error(f"Export failed: {str(e)}")
         return None, None
-    scale_map = {"Standard": 1, "High": 2, "Ultra": 3}
-    scale = scale_map.get(quality, 2)
-    png_bytes = fig.to_image(format="png", width=1200, height=600, scale=scale)
-    safe_title = "".join(c for c in chart_title if c.isalnum() or c in (' ', '-', '_')).rstrip()
-    safe_title = safe_title.replace(' ', '_').lower()
-    filename = f"{safe_title}_chart.png"
-    return png_bytes, filename
-
 def create_export_button(fig, chart_title, quality_setting):
+    """Create export button with cloud detection"""
+    import os
+    is_cloud = os.getenv('STREAMLIT_SHARING_MODE') or 'streamlit.io' in os.getenv('HOSTNAME', '')
+    if is_cloud:
+        st.caption("📱 PNG export available in local deployment only")
+        return
     png_bytes, filename = export_chart_as_png(fig, chart_title, quality_setting)
     if png_bytes:
         st.download_button(
@@ -435,6 +448,8 @@ def create_export_button(fig, chart_title, quality_setting):
             mime="image/png",
             help=f"Download as {quality_setting} quality PNG"
         )
+    else:
+        st.caption("💡 Install kaleido locally: `pip install kaleido`")
 
 def create_correlation_heatmap(df, selected_indicators):
     if len(df.columns) < 2:
