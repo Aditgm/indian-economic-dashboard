@@ -732,20 +732,27 @@ def display_data_quality_metrics(performance_stats: dict, status_messages: list)
     with quality_col1:
         success_rate = (performance_stats.get('successful_fetches', 0) / performance_stats.get('total_indicators', 1) * 100)
         st.metric("API Success Rate", f"{success_rate:.1f}%", delta=f"{performance_stats.get('successful_fetches', 0)} of {performance_stats.get('total_indicators', 0)}")
+    
     with quality_col2:
         quality_score = performance_stats.get('data_quality_score', 0)
         st.metric("Data Quality Score", f"{quality_score:.1f}%")
+    
     with quality_col3:
+        if 'performance_metrics' not in st.session_state:
+            st.session_state.performance_metrics = {}
         load_time = st.session_state.performance_metrics.get("Parallel Data Fetch", 0)
         st.metric("Data Load Time", f"{load_time:.2f}s")
+
     with quality_col4:
         last_update = datetime.datetime.now().strftime('%H:%M:%S IST')
         st.metric("Last Updated", last_update)
+    
     with st.expander("🔍 View Detailed Data Fetch Status"):
         for msg in status_messages:
             if "✅" in msg: st.success(msg)
             elif "⚠️" in msg: st.warning(msg)
             elif "❌" in msg: st.error(msg)
+
 
 @st.cache_data
 def create_realistic_sample_data(selected_indicators=None, days_back=365):
